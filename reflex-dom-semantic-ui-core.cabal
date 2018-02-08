@@ -21,9 +21,14 @@ library
   build-depends:
       base
     , ghcjs-dom
-    , jsaddle
     , lens
     , mtl
     , reflex-dom-core
     , text
+
+  if impl(ghcjs)
+    build-depends: ghcjs-base
+  else
+    build-depends: jsaddle, lens
+
   default-language: Haskell2010

@@ -13,14 +13,14 @@ import           Data.Monoid         ((<>))
 import qualified GHCJS.DOM.Element   as DOM
 import           GHCJS.DOM.Types     (MonadJSM, JSM, JSVal, JSString, liftJSM, fromJSString, fromJSValUnchecked)
 import           Reflex.Dom.Core     hiding (fromJSString)
-import           Control.Monad       (void)
 import           Control.Monad.Trans (liftIO)
 import           Data.Text           (Text)
 
 #ifdef ghcjs_HOST_OS
-import           GHCJS.DOM.Types                    (liftJSM, pFromJSVal, pToJSVal, JSM)
-import           GHCJS.Foreign.Callback             (Callback, asyncCallback1)
+import           GHCJS.DOM.Types        (pFromJSVal)
+import           GHCJS.Foreign.Callback (Callback, asyncCallback1)
 #else
+import           Control.Monad                      (void)
 --import Control.Concurrent (forkIO, threadDelay)
 --import Control.Monad      (unless)
 import           Control.Lens.Operators             ((^.))
@@ -434,6 +434,65 @@ uiEmbed
   => Element EventResult (DomBuilderSpace m) t
   -> m ()
 uiEmbed el_ = schedulePostBuild $ liftJSM $ activateEmbed (_element_raw el_)
+
+
+-- SHAPE ------------------------------------------------------------
+
+data ShapeBehavior
+  = ShapeFlipUp
+  | ShapeFlipDown
+  | ShapeFlipLeft
+  | ShapeFlipRight
+  | ShapeFlipOver
+  | ShapeFlipBack
+  | ShapeSetDefaultSide
+  | ShapeSetStageSize
+  | ShapeReset
+  | ShapeRepaint
+  | ShapeRefresh
+  deriving (Bounded, Eq, Enum, Show)
+
+shapeBehaviorString :: ShapeBehavior -> JSString
+shapeBehaviorString beh = case beh of
+  ShapeFlipUp         -> "flip up"
+  ShapeFlipDown       -> "flip down"
+  ShapeFlipLeft       -> "flip left"
+  ShapeFlipRight      -> "flip right"
+  ShapeFlipOver       -> "flip over"
+  ShapeFlipBack       -> "flip back"
+  ShapeSetDefaultSide -> "set default side"
+  ShapeSetStageSize   -> "set stage size"
+  ShapeReset          -> "reset"
+  ShapeRepaint        -> "repaint"
+  ShapeRefresh        -> "refresh"
+
+------------------------------------------------------------------------------
+uiShape
+  :: SemUiFfiConstraints t m
+  => Element EventResult (DomBuilderSpace m) t
+  -> Event t ShapeBehavior
+  -> m ()
+uiShape e beh = performEvent_ (liftJSM . uiTriggerShapeAction (_element_raw e) <$> beh)
+
+
+------------------------------------------------------------------------------
+uiTriggerShapeAction :: DOM.Element -> ShapeBehavior -> JSM ()
+uiTriggerShapeAction e beh = js_shapeAction e (shapeBehaviorString beh)
+
+#ifdef ghcjs_HOST_OS
+
+foreign import javascript unsafe "jQuery($1)['shape']($2);"
+  js_shapeAction :: DOM.Element -> JSString -> IO ()
+-- " -- this is here to fix syntax highlighting!
+
+#else
+
+js_shapeAction :: DOM.Element -> JSString -> JSM ()
+js_shapeAction e beh =
+  void $ jsg1 (t_ "jQuery") e ^. js1 (t_ "shape") beh
+
+#endif
+
 
 
 -- Helpers ----------------------------------------------------------
